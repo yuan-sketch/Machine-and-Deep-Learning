@@ -1,0 +1,7 @@
+axes.prop_cycle: cycler('color', ['0096ff', 'FF9300', 'C00000', 'FF40FF', '7030A0'])
+figure.figsize: 6,4
+axes.labelsize: 12
+axes.titlesize: 14
+font.size: 12
+legend.fontsize: 12
+axes.grid: False

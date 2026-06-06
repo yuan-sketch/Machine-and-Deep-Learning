@@ -1,0 +1,54 @@
+# Python 基础
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# 虚拟环境
+venv/
+.env/
+.venv/
+ENV/
+
+# 大型数据集和模型文件（只忽略二进制大文件，不忽略代码）
+*.pkl
+*.pt
+*.pth
+*.h5
+*.hdf5
+*.npz
+*.npy
+data/
+datasets/
+models/
+checkpoints/
+logs/
+runs/
+
+# IDE 和编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# 系统文件
+Thumbs.db
