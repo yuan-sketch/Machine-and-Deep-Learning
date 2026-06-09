@@ -150,7 +150,7 @@ def train_model(model, loss, optimizer, dataloaders, num_epochs=20):
             epoch_loss += l.item()
             if step % 200 == 0:
                 print('%d/%d, train_loss: %.3f'%(step, (dt_size-1)//dataloaders.batch_size+1, l.item()))
-        print('epoch %d loss:%.3f' %(epoch, epoch_loss))
+        print('epoch %d loss:%.3f' %(epoch+1, epoch_loss))
     return model
 if __name__ == '__main__':
     batch_size = 1
