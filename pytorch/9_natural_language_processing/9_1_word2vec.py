@@ -163,3 +163,46 @@ if __name__ == '__main__':
             print(name, 'shape:', data.shape)
         break
 
+# 跳字模型---词典大小为20，词向量维度为4
+embed = nn.Embedding(num_embeddings=20, embedding_dim=4)
+# 嵌入层的输入为词的索引，输出一个词的索引i,嵌入层返回权重矩阵的第i行作为它的词向量
+x = torch.tensor([[1,2,3],[4,5,6]], dtype=torch.long)
+print(embed(x))
+
+# 小批量乘法
+X = torch.ones((2,1,4))
+Y = torch.ones((2,4,6))
+print(torch.bmm(X, Y).shape)
+
+# 跳字模型前向计算
+def skip_gram(center, contexts_and_negatives,embed_v, embed_u):
+    # 每一个词由背景词向量和中心词向量表示
+    # 需要两个嵌入表示
+    v = embed_v(center)
+    u = embed_u(contexts_and_negatives)
+    # batch、emb、num
+    pred = torch.bmm(v, u.permute(0,2,1))
+    return pred
+
+# 训练模型---二元交叉熵损失函数
+class SigmoidBinaryCrossEntropyLoss(nn.Module):
+    def __init__(self):
+        super(SigmoidBinaryCrossEntropyLoss,self).__init__()
+    def forward(selfself, inputs, targets, mask=None):
+        inputs, targets = inputs.float(), targets.float()
+        mask = mask.float()
+        res = nn.functional.binary_cross_entropy_with_logits(
+            inputs, targets, reduction='none', weight=mask
+        )
+        return res.mean(dim=1)
+
+loss = SigmoidBinaryCrossEntropyLoss()
+
+# 通过掩码变量指定小批量中参与损失函数计算的部分预测值和标签：
+pred = torch.tensor([[1.5,0.3,-1,2], [1.1,-0.6,2.2,0.4]])
+# 标签变量label中的1和0分别表示背景词和噪声词
+label = torch.tensor([[1,0,0,0], [1,1,0,0]])
+# 掩码变量
+mask = torch.tensor([[1,1,1,1], [1,1,1,0]])
+print(loss(pred,label,mask)*mask.shape[1] / mask.float().sum(dim=1))
+
