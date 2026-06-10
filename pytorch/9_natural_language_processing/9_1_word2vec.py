@@ -206,3 +206,50 @@ label = torch.tensor([[1,0,0,0], [1,1,0,0]])
 mask = torch.tensor([[1,1,1,1], [1,1,1,0]])
 print(loss(pred,label,mask)*mask.shape[1] / mask.float().sum(dim=1))
 
+
+# 初始化模型参数
+# 分别构造中心词和背景词的嵌入层，并将超参数词向量维度embed_size设置成100
+embed_size = 100
+net = nn.Sequential(
+    nn.Embedding(num_embeddings= len(idx_to_token),embedding_dim= embed_size),
+    nn.Embedding(num_embeddings= len(idx_to_token),embedding_dim= embed_size)
+)
+
+# 定义训练函数
+def train(net, lr, num_epochs):
+    device = 'cuda'
+    net = net.to(device)
+    optimizer = torch.optim.Adam(net.parameters(), lr)
+    for epoch in range(num_epochs):
+        start, l_sum, n = time.time(), 0.0, 0
+        for batch in data_iter:
+            center, context_negative, mask, label = [
+                d.to(device) for d in batch
+            ]
+            pred = skip_gram(center, context_negative, net[0], net[1])
+            l = (loss(pred.view(label.shape), label, mask) * mask.shape[1] / mask.float().sum(dim=1)).mean()
+            optimizer.zero_grad()
+            l.backward()
+            optimizer.step()
+            l_sum += l.cpu().item()
+            n += 1
+        print('epoch %d, loss %.2f, time %.2f' %(epoch+1, l_sum/n, time.time()-start))
+
+train(net, 0.01, 10)
+
+# 应用词嵌入模型
+# 根据两个词的余弦相似度表示词与词之间在语义上的相似度
+def get_similar_tokens(query_tokens, k, embed):
+    W = embed.weight.data
+    x = W[token_to_idx[query_tokens]]
+    # 加1e-9保持数值稳定性
+    cos = torch.matual(W, x)/(
+        torch.sum(W*W, dim=1)*(torch.sum(x*x)+1e-9)
+    ).sqrt()
+    _, topk = torch.topk(cos, k=k+1)
+    topk = topk.cpu().numpy()
+    # 除去输入词
+    for i in topk[1:]:
+        print('cos sim=%.3f: %s' %(cos[i], (idx_to_token[i])))
+
+get_similar_tokens('chip', 3, net[0])
