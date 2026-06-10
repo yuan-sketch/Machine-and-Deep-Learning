@@ -18,43 +18,6 @@ import sys
 sys.path.append("..")
 import d2lzh as d2l
 
-# 预处理数据集
-with open('data/ptb/ptb.train.txt', 'r') as f:
-    lines = f.readlines()
-    raw_dataset = [st.split() for st in lines]
-
-for st in raw_dataset[:3]:
-    print('# tokens:', len(st), st[:5])
-
-# 建立词语索引---只保留数据集中至少出现5次的词
-counter = collections.Counter(
-    [tk for st in raw_dataset for tk in st]
-)
-counter = dict(filter(lambda x:x[1]>= 5, counter.items()))
-# 将词映射到整数索引
-idx_to_token = [tk for tk, _ in counter.items()]
-token_to_idx = {tk: idx for idx, tk in enumerate(idx_to_token)}
-dataset = [[token_to_idx[tk] for tk in st if tk in token_to_idx] for st in raw_dataset]
-num_tokens = sum([len(st) for st in dataset])
-
-# 二次采样---数据集中每个被索引词wi将有一定的概率被丢弃
-def discard(idx):
-    # 与均匀分布相比，确实该词是否被剔除
-    return random.uniform(0,1) < 1-math.sqrt(
-        1e-4 / counter[idx_to_token[idx]] * num_tokens
-    )
-subsampled_dataset = [[tk for tk in st if not discard(tk)]
-                      for st in dataset]
-
-# 比较一个词在二次取样前后出现在数据集中的次数
-def compare_counts(token):
-    return '# %s: before=%d, after=%d' % (token,sum(
-        [st.count(token_to_idx[token]) for st in dataset]
-    ),sum(
-        [st.count(token_to_idx[token]) for st in subsampled_dataset]
-    ))
-print(compare_counts('the'))
-print(compare_counts('join'))
 
 # 提取中心词和背景词
 def get_centers_and_contexts(dataset, max_window_size):
@@ -74,17 +37,6 @@ def get_centers_and_contexts(dataset, max_window_size):
             contexts.append([st[idx] for idx in indices])
     return centers, contexts
 
-# 创建人工数据集，含有词数分别为7和3的两个句子，设最大窗口是2，打印所有中心词和背景词
-tiny_dataset = [list(range(7)), list(range(7, 10))]
-print('dataset:', tiny_dataset)
-for center, context in zip(*get_centers_and_contexts(tiny_dataset, 2)):
-    print('center', center, 'has contexts', context)
-
-
-# 实验中，设置最大背景窗口大小为5，提取数据集中所有中心词及其背景词
-all_centers, all_contexts = get_centers_and_contexts(subsampled_dataset, 5)
-
-
 # 负采样
 # 对于一对中心词和背景词，随机采样背景词个数K倍个噪声词
 def get_negatives(all_contexts, sampling_weights, K):
@@ -97,7 +49,7 @@ def get_negatives(all_contexts, sampling_weights, K):
     for contexts in all_contexts:
         negatives = []
         while len(negatives) < len(contexts) * K:
-            if i == neg_candidates:
+            if i == len(neg_candidates):
                 # 从population随机选取k次数据，返回一个列表
                 # 根据每个词的权重随机生成k个次的索引作为噪声词
                 # 为了高效运算，可以将k设置的大一些
@@ -111,8 +63,7 @@ def get_negatives(all_contexts, sampling_weights, K):
         all_negatives.append(negatives)
     return all_negatives
 
-sampling_weights = [counter[w]**0.75 for w in idx_to_token]
-all_negatives = get_negatives(all_contexts, sampling_weights, 5)
+
 
 # 读取数据集
 class MyDataset(torch.utils.data.Dataset):
@@ -145,3 +96,70 @@ def batchify(data):
             torch.tensor(masks),
             torch.tensor(labels)
             )
+if __name__ == '__main__':
+    # 预处理数据集
+    with open('data/ptb/ptb.train.txt', 'r') as f:
+        lines = f.readlines()
+        raw_dataset = [st.split() for st in lines]
+
+    for st in raw_dataset[:3]:
+        print('# tokens:', len(st), st[:5])
+
+    # 建立词语索引---只保留数据集中至少出现5次的词
+    counter = collections.Counter(
+        [tk for st in raw_dataset for tk in st]
+    )
+    counter = dict(filter(lambda x: x[1] >= 5, counter.items()))
+    # 将词映射到整数索引
+    idx_to_token = [tk for tk, _ in counter.items()]
+    token_to_idx = {tk: idx for idx, tk in enumerate(idx_to_token)}
+    dataset = [[token_to_idx[tk] for tk in st if tk in token_to_idx] for st in raw_dataset]
+    num_tokens = sum([len(st) for st in dataset])
+
+
+    # 二次采样---数据集中每个被索引词wi将有一定的概率被丢弃
+    def discard(idx):
+        # 与均匀分布相比，确实该词是否被剔除
+        return random.uniform(0, 1) < 1 - math.sqrt(
+            1e-4 / counter[idx_to_token[idx]] * num_tokens
+        )
+
+
+    subsampled_dataset = [[tk for tk in st if not discard(tk)]
+                          for st in dataset]
+
+
+    # 比较一个词在二次取样前后出现在数据集中的次数
+    def compare_counts(token):
+        return '# %s: before=%d, after=%d' % (token, sum(
+            [st.count(token_to_idx[token]) for st in dataset]
+        ), sum(
+            [st.count(token_to_idx[token]) for st in subsampled_dataset]
+        ))
+
+
+    print(compare_counts('the'))
+    print(compare_counts('join'))
+    # 创建人工数据集，含有词数分别为7和3的两个句子，设最大窗口是2，打印所有中心词和背景词
+    tiny_dataset = [list(range(7)), list(range(7, 10))]
+    print('dataset:', tiny_dataset)
+    for center, context in zip(*get_centers_and_contexts(tiny_dataset, 2)):
+        print('center', center, 'has contexts', context)
+
+    # 实验中，设置最大背景窗口大小为5，提取数据集中所有中心词及其背景词
+    all_centers, all_contexts = get_centers_and_contexts(subsampled_dataset, 5)
+
+
+    sampling_weights = [counter[w] ** 0.75 for w in idx_to_token]
+    all_negatives = get_negatives(all_contexts, sampling_weights, 5)
+    batch_size = 512
+    num_workers = 4
+    dataset = MyDataset(all_centers, all_contexts, all_negatives)
+    data_iter = Data.DataLoader(dataset, batch_size, shuffle=True,
+                                collate_fn=batchify,num_workers=4)
+    for batch in data_iter:
+        for name, data in zip(['centers', 'contexts_negatives',
+                               'masks','labels'], batch):
+            print(name, 'shape:', data.shape)
+        break
+
